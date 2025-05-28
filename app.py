@@ -5,7 +5,7 @@ import torch
 from transformers import BertTokenizer, BertForSequenceClassification
 from torch.nn.functional import softmax
 
-# Set up Streamlit page
+# Set up the Streamlit app
 st.set_page_config(page_title="Facebook Post Sentiment Analyzer", layout="wide")
 
 # Load BERT model and tokenizer
@@ -17,15 +17,22 @@ def load_model():
 
 tokenizer, model = load_model()
 
-# Fetch Facebook post details without deprecated fields
+# Fetch post details
 def fetch_post_details(token, post_id):
     url = f"https://graph.facebook.com/v18.0/{post_id}"
     params = {
         'access_token': token,
-        'fields': 'message,created_time,comments.summary(true)'
+        'fields': 'message,created_time,comments.summary(true),permalink_url'
     }
     response = requests.get(url, params=params)
     return response.json()
+
+# Fetch like count separately
+def fetch_like_count(token, post_id):
+    url = f"https://graph.facebook.com/v18.0/{post_id}/reactions"
+    params = {'access_token': token, 'summary': 'true'}
+    res = requests.get(url, params=params).json()
+    return res.get('summary', {}).get('total_count', 'N/A')
 
 # Fetch all comments with pagination
 def fetch_all_comments(token, post_id):
@@ -41,7 +48,7 @@ def fetch_all_comments(token, post_id):
 
     return comments
 
-# Sentiment classification
+# Classify comment sentiment
 def classify_sentiment(text):
     inputs = tokenizer.encode_plus(text, return_tensors="pt", truncation=True)
     outputs = model(**inputs)
@@ -54,7 +61,7 @@ def classify_sentiment(text):
     else:
         return "Positive"
 
-# Streamlit app interface
+# Streamlit UI
 st.title("📘 Facebook Post Sentiment Analyzer")
 
 token = st.text_input("🔐 Facebook Access Token", type="password")
@@ -65,6 +72,7 @@ if token and post_id:
     try:
         st.info("Fetching post details...")
         post = fetch_post_details(token, post_id)
+        like_count = fetch_like_count(token, post_id)
 
         if "error" in post:
             st.error(f"Facebook API Error: {post['error']['message']}")
@@ -73,6 +81,8 @@ if token and post_id:
             st.write(f"🗓️ Created: {post.get('created_time', 'N/A')}")
             st.write(f"📄 Message: {post.get('message', 'No message')}")
             st.write(f"💬 Total Comments: {post.get('comments', {}).get('summary', {}).get('total_count', 'N/A')}")
+            st.write(f"👍 Likes: {like_count}")
+            st.markdown(f"🔗 [View Post on Facebook]({post.get('permalink_url', '#')})")
 
             st.info("Fetching and analyzing all comments...")
             comments = fetch_all_comments(token, post_id)
