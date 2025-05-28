@@ -40,22 +40,21 @@ st.markdown("<h1 style='text-align: center; color: #3366cc;'>📘 Facebook Senti
 st.subheader("🔐 Step 1: Enter Facebook Access Token")
 access_token = st.text_input("Access Token", type="password", label_visibility="collapsed", placeholder="Enter your Facebook Access Token")
 
-st.subheader("🆔 Step 2: Select Facebook Page")
+st.subheader("📝 Step 2: Enter Facebook Post ID Only")
+post_suffix = st.text_input("Post ID Only (not full format)", placeholder="Example: 123456789012345")
+
 page_id = ""
-page_name = ""
 if access_token:
+    # Automatically get first page ID
     pages_url = f"https://graph.facebook.com/v19.0/me/accounts?access_token={access_token}"
     res = requests.get(pages_url).json()
     pages = res.get("data", [])
     if pages:
-        options = {page['name']: page['id'] for page in pages}
-        page_name = st.selectbox("Select a Page", list(options.keys()), index=0)
-        page_id = options[page_name]
+        first_page = pages[0]
+        page_id = first_page["id"]
+        page_name = first_page.get("name", "Unknown")
+        st.success(f"Using Page: {page_name} (ID: {page_id})")
 
-st.subheader("📝 Step 3: Enter Facebook Post ID")
-post_suffix = st.text_input("Post ID Only (not full format)", placeholder="Example: 123456789012345")
-
-# Automatically format full post ID when ready
 if access_token and page_id and post_suffix:
     post_id = f"{page_id}_{post_suffix}"
     st.success(f"Formatted Post ID: {post_id}")
