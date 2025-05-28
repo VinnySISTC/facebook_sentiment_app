@@ -67,11 +67,6 @@ if token and post_id:
             if post.get("permalink_url"):
                 st.markdown(f"🔗 [View Post]({post['permalink_url']})")
 
-            # Image rendering with size control
-            media = post.get("attachments", {}).get("data", [{}])[0]
-            media_url = media.get("media", {}).get("image", {}).get("src", "")
-            if media.get("media_type") in ["photo", "video"] and media_url:
-                st.image(media_url, caption="Post Media", width=500)
 
             # Section 2: Sentiment Analysis
             st.subheader("💬 Comment Sentiment")
