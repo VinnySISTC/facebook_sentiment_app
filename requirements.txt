@@ -1,6 +1,6 @@
 streamlit
-pandas
 requests
-matplotlib
 transformers
 torch
+pandas
+matplotlib
