@@ -5,10 +5,10 @@ import torch
 from transformers import BertTokenizer, BertForSequenceClassification
 from torch.nn.functional import softmax
 
-# Page config
-st.set_page_config(page_title="Facebook Post Analyser", layout="wide")
+# Page setup
+st.set_page_config(page_title="Facebook Post Sentiment Analyzer", layout="wide")
 
-# Load BERT tokenizer and model
+# Load BERT model and tokenizer
 @st.cache_resource
 def load_model():
     tokenizer = BertTokenizer.from_pretrained("nlptown/bert-base-multilingual-uncased-sentiment")
@@ -22,23 +22,26 @@ def fetch_post_details(token, post_id):
     url = f"https://graph.facebook.com/v18.0/{post_id}"
     params = {
         'access_token': token,
-        'fields': 'message,created_time,reactions.summary(true),shares,comments.summary(true),permalink_url'
+        'fields': 'message,created_time,shares,likes.summary(true),comments.summary(true)'
     }
     response = requests.get(url, params=params)
     return response.json()
 
-# Fetch comments
-def fetch_comments(token, post_id):
+# Fetch all Facebook comments using pagination
+def fetch_all_comments(token, post_id):
+    comments = []
     url = f"https://graph.facebook.com/v18.0/{post_id}/comments"
-    params = {
-        'access_token': token,
-        'summary': 'true',
-        'limit': 100
-    }
-    response = requests.get(url, params=params)
-    return [c["message"] for c in response.json().get("data", []) if "message" in c]
+    params = {'access_token': token, 'limit': 100}
 
-# Classify sentiment using BERT
+    while url:
+        res = requests.get(url, params=params if '?' not in url else {}).json()
+        batch = [c["message"] for c in res.get("data", []) if "message" in c]
+        comments.extend(batch)
+        url = res.get("paging", {}).get("next")
+
+    return comments
+
+# Sentiment classifier
 def classify_sentiment(text):
     inputs = tokenizer.encode_plus(text, return_tensors="pt", truncation=True)
     outputs = model(**inputs)
@@ -51,44 +54,39 @@ def classify_sentiment(text):
     else:
         return "Positive"
 
-# Streamlit UI
-st.title("📊 Facebook Post Analyser")
+# Streamlit interface
+st.title("📘 Facebook Post Sentiment Analyzer")
 
 token = st.text_input("🔐 Facebook Access Token", type="password")
-post_id = st.text_input("📝 Facebook Post ID")
+post_id = st.text_input("📝 Facebook Post ID (e.g., 1234567890_0987654321)")
 
 if token and post_id:
     st.success("✅ Token and Post ID entered")
-
     try:
-        # Fetch post data
-        st.info("Fetching post data...")
+        st.info("Fetching post details...")
         post = fetch_post_details(token, post_id)
+
         if "error" in post:
             st.error(f"Facebook API Error: {post['error']['message']}")
         else:
-            # Display Post Metadata
             st.subheader("🧾 Post Information")
-            st.write(f"📅 Created: {post.get('created_time', 'N/A')}")
-            st.write(f"📝 Message: {post.get('message', 'No message')}")
-            st.write(f"👍 Reactions: {post.get('reactions', {}).get('summary', {}).get('total_count', 0)}")
-            st.write(f"🔄 Shares: {post.get('shares', {}).get('count', 0)}")
-            st.write(f"💬 Comments: {post.get('comments', {}).get('summary', {}).get('total_count', 0)}")
-            if post.get("permalink_url"):
-                st.markdown(f"🔗 [View Post on Facebook]({post['permalink_url']})")
+            st.write(f"🗓️ Created: {post.get('created_time', 'N/A')}")
+            st.write(f"📄 Message: {post.get('message', 'No message')}")
+            st.write(f"👍 Likes: {post.get('likes', {}).get('summary', {}).get('total_count', 'N/A')}")
+            st.write(f"💬 Total Comments: {post.get('comments', {}).get('summary', {}).get('total_count', 'N/A')}")
+            st.write(f"🔁 Shares: {post.get('shares', {}).get('count', 'N/A')}")
 
             # Fetch and analyze comments
-            st.info("Fetching comments...")
-            comments = fetch_comments(token, post_id)
+            st.info("Fetching and analyzing all comments...")
+            comments = fetch_all_comments(token, post_id)
             if not comments:
-                st.warning("No comments found.")
+                st.warning("No comments found on this post.")
             else:
-                sentiments = [classify_sentiment(c) for c in comments]
+                sentiments = [classify_sentiment(comment) for comment in comments]
                 df = pd.DataFrame({"Comment": comments, "Sentiment": sentiments})
 
-                # Side-by-side chart and table
                 st.subheader("💬 Comment Sentiment Analysis")
-                col1, col2 = st.columns([1, 2])  # Reduced width chart
+                col1, col2 = st.columns([1, 2])
 
                 with col1:
                     st.markdown("**Sentiment Distribution**")
