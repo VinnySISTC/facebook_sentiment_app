@@ -18,7 +18,7 @@ tokenizer, model = load_model()
 
 # Fetch post metadata
 def fetch_post_info(token, post_id):
-    fields = "message,created_time,reactions.summary(true),shares,comments.summary(true),permalink_url,attachments{media_type,media,url}"
+    fields = "message,created_time,reactions.summary(true),shares,comments.summary(true),permalink_url"
     url = f"https://graph.facebook.com/v18.0/{post_id}"
     params = {'access_token': token, 'fields': fields}
     return requests.get(url, params=params).json()
@@ -66,7 +66,6 @@ if token and post_id:
             st.write(f"💬 Comments: {post.get('comments', {}).get('summary', {}).get('total_count', 0)}")
             if post.get("permalink_url"):
                 st.markdown(f"🔗 [View Post]({post['permalink_url']})")
-
 
             # Section 2: Sentiment Analysis
             st.subheader("💬 Comment Sentiment")
