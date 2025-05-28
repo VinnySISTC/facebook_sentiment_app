@@ -5,7 +5,7 @@ import torch
 from transformers import BertTokenizer, BertForSequenceClassification
 from torch.nn.functional import softmax
 
-# Page setup
+# Set up Streamlit page
 st.set_page_config(page_title="Facebook Post Sentiment Analyzer", layout="wide")
 
 # Load BERT model and tokenizer
@@ -17,17 +17,17 @@ def load_model():
 
 tokenizer, model = load_model()
 
-# Fetch Facebook post details
+# Fetch Facebook post details without deprecated fields
 def fetch_post_details(token, post_id):
     url = f"https://graph.facebook.com/v18.0/{post_id}"
     params = {
         'access_token': token,
-        'fields': 'message,created_time,shares,likes.summary(true),comments.summary(true)'
+        'fields': 'message,created_time,comments.summary(true)'
     }
     response = requests.get(url, params=params)
     return response.json()
 
-# Fetch all Facebook comments using pagination
+# Fetch all comments with pagination
 def fetch_all_comments(token, post_id):
     comments = []
     url = f"https://graph.facebook.com/v18.0/{post_id}/comments"
@@ -41,7 +41,7 @@ def fetch_all_comments(token, post_id):
 
     return comments
 
-# Sentiment classifier
+# Sentiment classification
 def classify_sentiment(text):
     inputs = tokenizer.encode_plus(text, return_tensors="pt", truncation=True)
     outputs = model(**inputs)
@@ -54,7 +54,7 @@ def classify_sentiment(text):
     else:
         return "Positive"
 
-# Streamlit interface
+# Streamlit app interface
 st.title("📘 Facebook Post Sentiment Analyzer")
 
 token = st.text_input("🔐 Facebook Access Token", type="password")
@@ -72,11 +72,8 @@ if token and post_id:
             st.subheader("🧾 Post Information")
             st.write(f"🗓️ Created: {post.get('created_time', 'N/A')}")
             st.write(f"📄 Message: {post.get('message', 'No message')}")
-            st.write(f"👍 Likes: {post.get('likes', {}).get('summary', {}).get('total_count', 'N/A')}")
             st.write(f"💬 Total Comments: {post.get('comments', {}).get('summary', {}).get('total_count', 'N/A')}")
-            st.write(f"🔁 Shares: {post.get('shares', {}).get('count', 'N/A')}")
 
-            # Fetch and analyze comments
             st.info("Fetching and analyzing all comments...")
             comments = fetch_all_comments(token, post_id)
             if not comments:
