@@ -55,7 +55,9 @@ if access_token:
         page_name = first_page.get("name", "Unknown")
         st.success(f"Using Page: {page_name} (ID: {page_id})")
 
-if access_token and page_id and post_suffix:
+run_analysis = st.button("🚀 Run Analysis")
+
+if run_analysis and access_token and page_id and post_suffix:
     post_id = f"{page_id}_{post_suffix}"
     st.success(f"Formatted Post ID: {post_id}")
 
