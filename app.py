@@ -5,10 +5,10 @@ import torch
 from transformers import BertTokenizer, BertForSequenceClassification
 from torch.nn.functional import softmax
 
-# Set up the Streamlit app
+# Streamlit page setup
 st.set_page_config(page_title="Facebook Post Sentiment Analyzer", layout="wide")
 
-# Load BERT model and tokenizer
+# Load model and tokenizer
 @st.cache_resource
 def load_model():
     tokenizer = BertTokenizer.from_pretrained("nlptown/bert-base-multilingual-uncased-sentiment")
@@ -17,7 +17,7 @@ def load_model():
 
 tokenizer, model = load_model()
 
-# Fetch post details
+# Fetch Facebook post details
 def fetch_post_details(token, post_id):
     url = f"https://graph.facebook.com/v18.0/{post_id}"
     params = {
@@ -27,14 +27,14 @@ def fetch_post_details(token, post_id):
     response = requests.get(url, params=params)
     return response.json()
 
-# Fetch like count separately
+# Fetch Facebook like count
 def fetch_like_count(token, post_id):
     url = f"https://graph.facebook.com/v18.0/{post_id}/reactions"
     params = {'access_token': token, 'summary': 'true'}
     res = requests.get(url, params=params).json()
     return res.get('summary', {}).get('total_count', 'N/A')
 
-# Fetch all comments with pagination
+# Fetch all comments using pagination
 def fetch_all_comments(token, post_id):
     comments = []
     url = f"https://graph.facebook.com/v18.0/{post_id}/comments"
@@ -48,7 +48,7 @@ def fetch_all_comments(token, post_id):
 
     return comments
 
-# Classify comment sentiment
+# Classify comment sentiment using BERT
 def classify_sentiment(text):
     inputs = tokenizer.encode_plus(text, return_tensors="pt", truncation=True)
     outputs = model(**inputs)
@@ -61,7 +61,7 @@ def classify_sentiment(text):
     else:
         return "Positive"
 
-# Streamlit UI
+# UI layout
 st.title("📘 Facebook Post Sentiment Analyzer")
 
 token = st.text_input("🔐 Facebook Access Token", type="password")
@@ -92,12 +92,26 @@ if token and post_id:
                 sentiments = [classify_sentiment(comment) for comment in comments]
                 df = pd.DataFrame({"Comment": comments, "Sentiment": sentiments})
 
+                # Sentiment summary
+                sentiment_counts = df["Sentiment"].value_counts()
+                total = len(df)
+                positive_pct = (sentiment_counts.get("Positive", 0) / total) * 100
+                negative_pct = (sentiment_counts.get("Negative", 0) / total) * 100
+                neutral_pct = (sentiment_counts.get("Neutral", 0) / total) * 100
+
                 st.subheader("💬 Comment Sentiment Analysis")
                 col1, col2 = st.columns([1, 2])
 
                 with col1:
                     st.markdown("**Sentiment Distribution**")
-                    st.bar_chart(df["Sentiment"].value_counts())
+                    st.bar_chart(sentiment_counts)
+
+                    st.markdown(f"""
+                    #### 📊 Sentiment Percentages:
+                    - ✅ Positive: **{positive_pct:.1f}%**
+                    - ⚠️ Neutral: **{neutral_pct:.1f}%**
+                    - ❌ Negative: **{negative_pct:.1f}%**
+                    """)
 
                 with col2:
                     st.markdown("**Classified Comments**")
